@@ -1,0 +1,137 @@
+version: '2.1'
+# https://dev.to/mozartted/docker-networking--how-to-connect-multiple-containers-7fl
+# expect html with some code in nginxhttps volume
+# expect lb nginx code in nginxhttps volume
+services:
+
+  zc-fe:
+    image: docker.cloud.zingbox.com:5000/zc-daily/frontend:v0.3_1750
+    command: ['nginx', '-g', 'daemon off;' ]
+    environment:
+      - NODE_ENV=testing
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - NODE_VERSION=8.11.1
+      - YARN_VERSION=1.5.1
+    privileged: true
+    ports:
+      - "80:80"
+      - "443:443"
+
+  zc-auth:
+    image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
+    container_name: zc-auth
+    hostname: zcauth
+    domainname: zingbox.com
+    environment:
+      - NODE_ENV=testing
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - NODE_VERSION=8.11.1
+      - YARN_VERSION=1.5.1
+    restart: always
+    ports:
+# don't expose http
+#      - "9082:9082"
+      - "9032:9032"
+    privileged: true
+    command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'auth', '-t', '-l',
+            '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-p', '9082', '-s', '9032' ]
+    links:
+      - zc-api
+    networks:
+      backend:
+        aliases:
+          - zcauth
+  zc-api:
+    image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
+    container_name: zc-api
+    hostname: zcapi
+    domainname: zingbox.com
+    environment:
+      - NODE_ENV=testing
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - NODE_VERSION=8.11.1
+      - YARN_VERSION=1.5.1
+    restart: always
+    ports:
+      - "9030:9030"
+# don't expose http
+#      - "9080:9080"
+    privileged: true
+    command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'api', '-t', '-l',
+            '/www', '--NODE_CONFIG={"mongoPoolSize":80}', '-p', '9080', '-s', '9030' ]
+    networks:
+      backend:
+        aliases:
+          - zcapi
+  zc-con:
+    image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
+    container_name: zc-con
+    hostname: zccon
+    domainname: zingbox.com
+    environment:
+      - NODE_ENV=testing
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - NODE_VERSION=8.11.1
+      - YARN_VERSION=1.5.1
+    restart: always
+    ports:
+      - "9031:9031"
+# don't expose http
+#      - "9081:9081"
+    privileged: true
+    command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'connector', '-t',
+            '-l', '/www', '--ws', '--NODE_CONFIG={"mongoPoolSize":5}', '-p', '9081', '-s', '9031']
+    networks:
+      backend:
+        aliases:
+          - zccon
+
+  zc-api-proxy:
+    image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
+    container_name: zc-api-proxy
+    hostname: zcapiproxy
+    domainname: zingbox.com
+    environment:
+      - NODE_ENV=testing
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - NODE_VERSION=8.11.1
+      - YARN_VERSION=1.5.1
+    restart: always
+    ports:
+      - "9033:9033"
+# don't expose http
+#      - "9083:9083"
+    privileged: true
+    command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'api_proxy', '-t', '-l',
+           '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-p', '9083', '-s', '9033']
+    networks:
+      backend:
+        aliases:
+          - zcapiproxy
+  nginxhttps:
+    image: docker.cloud.zingbox.com:5000/nginx:0.2
+    container_name: tnginx
+    hostname: tnginx
+    domainname: zingbox.com
+
+    environment:
+      - NODE_ENV=testing
+      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+      - NODE_VERSION=8.11.1
+      - YARN_VERSION=1.5.1
+    ports:
+      - "8080:80"
+      - "8443:443"
+    privileged: true
+    depends_on:
+      - zc-auth
+    volumes:
+      - /Users/Shared/proj/kops/terraform-provider-aws/examples/eks-getting-started/bg/nginx/html:/etc/nginx/html
+      - /Users/Shared/proj/kops/terraform-provider-aws/examples/eks-getting-started/bg/nginx/nginx.conf:/etc/nginx/sites-enabled/default
+    networks:
+      backend:
+        aliases:
+          - tnginx
+networks:
+  backend:
+    driver: "bridge"
