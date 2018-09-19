@@ -1,5 +1,7 @@
 version: '2.1'
 # https://dev.to/mozartted/docker-networking--how-to-connect-multiple-containers-7fl
+# expect html with some code in nginxhttps volume
+# expect lb nginx code in nginxhttps volume
 services:
 
   zc-fe:
@@ -11,6 +13,7 @@ services:
       - NODE_VERSION=8.11.1
       - YARN_VERSION=1.5.1
     privileged: true
+
     ports:
       - "80:80"
       - "443:443"
@@ -37,7 +40,7 @@ services:
 # TODO: for code checkin
 #      - /root/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'auth', '-t', '-l',
-            '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-p', '9082', '-s', '9032' ]
+            '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-s', '9032' ]
     links:
       - zc-api
     networks:
@@ -65,7 +68,7 @@ services:
 # TODO: for code checkin
       - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'api', '-t', '-l',
-            '/www', '--NODE_CONFIG={"mongoPoolSize":80}', '-p', '9080', '-s', '9030' ]
+            '/www', '--NODE_CONFIG={"mongoPoolSize":80}', '-s', '9030' ]
     networks:
       backend:
         aliases:
@@ -90,7 +93,7 @@ services:
 # TODO: for code checkin
       - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'connector', '-t',
-            '-l', '/www', '--ws', '--NODE_CONFIG={"mongoPoolSize":5}', '-p', '9081', '-s', '9031']
+            '-l', '/www', '--ws', '--NODE_CONFIG={"mongoPoolSize":5}', '-s', '9031']
     networks:
       backend:
         aliases:
@@ -116,7 +119,7 @@ services:
 # TODO: for code checkin
       - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'api_proxy', '-t', '-l',
-           '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-p', '9083', '-s', '9033']
+           '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-s', '9033']
     networks:
       backend:
         aliases:
@@ -138,7 +141,7 @@ services:
     privileged: true
     depends_on:
       - zc-auth
-   networks:
+    networks:
       backend:
         aliases:
           - tnginx
