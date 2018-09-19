@@ -1,7 +1,5 @@
-version: '2.1'
+version: '2'
 # https://dev.to/mozartted/docker-networking--how-to-connect-multiple-containers-7fl
-# expect html with some code in nginxhttps volume
-# expect lb nginx code in nginxhttps volume
 services:
 
   zc-fe:
@@ -22,7 +20,6 @@ services:
     image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
     container_name: zc-auth
     hostname: zcauth
-    domainname: zingbox.com
     environment:
       - NODE_ENV=testing
       - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -35,8 +32,8 @@ services:
       - "9032:9032"
 
     privileged: true
-    volumes:
-      - /tmp/config:/config
+#    volumes:
+#      - /tmp/config:/config
 # TODO: for code checkin
 #      - /root/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'auth', '-t', '-l',
@@ -51,7 +48,6 @@ services:
     image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
     container_name: zc-api
     hostname: zcapi
-    domainname: zingbox.com
     environment:
       - NODE_ENV=testing
       - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -64,9 +60,9 @@ services:
 #      - "9080:9080"
 
     privileged: true
-    volumes:
+#    volumes:
 # TODO: for code checkin
-      - /tmp/config:/config
+#      - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'api', '-t', '-l',
             '/www', '--NODE_CONFIG={"mongoPoolSize":80}', '-s', '9030' ]
     networks:
@@ -77,7 +73,6 @@ services:
     image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
     container_name: zc-con
     hostname: zccon
-    domainname: zingbox.com
     environment:
       - NODE_ENV=testing
       - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -89,9 +84,9 @@ services:
 # don't expose http, legacy purpose only
 #      - "9081:9081"
     privileged: true
-    volumes:
+#    volumes:
 # TODO: for code checkin
-      - /tmp/config:/config
+#      - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'connector', '-t',
             '-l', '/www', '--ws', '--NODE_CONFIG={"mongoPoolSize":5}', '-s', '9031']
     networks:
@@ -103,7 +98,6 @@ services:
     image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
     container_name: zc-api-proxy
     hostname: zcapiproxy
-    domainname: zingbox.com
     environment:
       - NODE_ENV=testing
       - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -115,9 +109,9 @@ services:
 # don't expose http, legacy purpose only
 #      - "9083:9083"
     privileged: true
-    volumes:
+#    volumes:
 # TODO: for code checkin
-      - /tmp/config:/config
+#      - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'api_proxy', '-t', '-l',
            '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-s', '9033']
     networks:
@@ -128,7 +122,6 @@ services:
     image: docker.cloud.zingbox.com:5000/nginx:0.3
     container_name: tnginx
     hostname: tnginx
-    domainname: zingbox.com
 
     environment:
       - NODE_ENV=testing
@@ -141,10 +134,12 @@ services:
     privileged: true
     depends_on:
       - zc-auth
+      - zc-api-proxy
+      - zc-api
+      - zc-con
     networks:
       backend:
         aliases:
           - tnginx
 networks:
   backend:
-    driver: "bridge"
