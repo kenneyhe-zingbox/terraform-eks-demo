@@ -1,24 +1,13 @@
 version: '2'
 # https://dev.to/mozartted/docker-networking--how-to-connect-multiple-containers-7fl
+# export for any build:
+# export BNUM=ops001.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
+# export FNUM=ops001.cloud.zingbox.com:5000/zc-daily/frontend:1841
+# deploy to any host:
+# terraform plan   -var-file=/Users/Shared/proj/jlee/redis/terraform.tfmine -target=null_resource.docker-compose -target=null_resource.docker-compose[5] -refresh=true    -out  planfile
 services:
-
-  zc-fe:
-    image: docker.cloud.zingbox.com:5000/zc-daily/frontend:v0.3_1750
-    command: ['nginx', '-g', 'daemon off;' ]
-    environment:
-      - NODE_ENV=testing
-      - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
-      - NODE_VERSION=8.11.1
-      - YARN_VERSION=1.5.1
-    privileged: true
-
-    ports:
-      - "80:80"
-      - "443:443"
-
   zc-auth:
-    image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
-    container_name: zc-auth
+    image: ${BNUM}
     hostname: zcauth
     environment:
       - NODE_ENV=testing
@@ -26,27 +15,18 @@ services:
       - NODE_VERSION=8.11.1
       - YARN_VERSION=1.5.1
     restart: always
-    ports:
-# don't expose http, legacy purpose only
-#      - "9082:9082"
-      - "9032:9032"
-
-    privileged: true
 #    volumes:
-#      - /tmp/config:/config
-# TODO: for code checkin
-#      - /root/config:/config
+#      - config:/usr/src/app/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'auth', '-t', '-l',
             '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-s', '9032' ]
-    links:
-      - zc-api
+
     networks:
       backend:
+        # can scale zc-auth yet because it need nginx restart and configuration change
         aliases:
           - zcauth
   zc-api:
-    image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
-    container_name: zc-api
+    image: ${BNUM}
     hostname: zcapi
     environment:
       - NODE_ENV=testing
@@ -54,24 +34,16 @@ services:
       - NODE_VERSION=8.11.1
       - YARN_VERSION=1.5.1
     restart: always
-    ports:
-      - "9030:9030"
-# don't expose http, legacy purpose only
-#      - "9080:9080"
-
-    privileged: true
-#    volumes:
-# TODO: for code checkin
-#      - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'api', '-t', '-l',
             '/www', '--NODE_CONFIG={"mongoPoolSize":80}', '-s', '9030' ]
     networks:
       backend:
         aliases:
           - zcapi
+#    volumes:
+#      - config:/usr/src/app/config
   zc-con:
-    image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
-    container_name: zc-con
+    image: ${BNUM}
     hostname: zccon
     environment:
       - NODE_ENV=testing
@@ -79,24 +51,16 @@ services:
       - NODE_VERSION=8.11.1
       - YARN_VERSION=1.5.1
     restart: always
-    ports:
-      - "9031:9031"
-# don't expose http, legacy purpose only
-#      - "9081:9081"
-    privileged: true
-#    volumes:
-# TODO: for code checkin
-#      - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'connector', '-t',
             '-l', '/www', '--ws', '--NODE_CONFIG={"mongoPoolSize":5}', '-s', '9031']
     networks:
       backend:
         aliases:
           - zccon
-
+#    volumes:
+#      - config:/usr/src/app/config
   zc-api-proxy:
-    image: docker.cloud.zingbox.com:5000/zc-daily/service:v0.3_2657
-    container_name: zc-api-proxy
+    image: ${BNUM}
     hostname: zcapiproxy
     environment:
       - NODE_ENV=testing
@@ -104,34 +68,30 @@ services:
       - NODE_VERSION=8.11.1
       - YARN_VERSION=1.5.1
     restart: always
-    ports:
-      - "9033:9033"
-# don't expose http, legacy purpose only
-#      - "9083:9083"
-    privileged: true
-#    volumes:
-# TODO: for code checkin
-#      - /tmp/config:/config
     command: ['forever', '-a', '-o', '/www/log', '-e', '/www/log', '-c', 'node --harmony', 'zcserver.js', 'api_proxy', '-t', '-l',
            '/www', '--NODE_CONFIG={"mongoPoolSize":5}', '-s', '9033']
     networks:
       backend:
         aliases:
           - zcapiproxy
+#    volumes:
+#      - config:/usr/src/app/config
   nginxhttps:
-    image: docker.cloud.zingbox.com:5000/nginx:0.3
-    container_name: tnginx
+    image: ops001.cloud.zingbox.com:5000/nginx:0.7
     hostname: tnginx
-
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        fnum: ${FNUM}
+    restart: always
     environment:
       - NODE_ENV=testing
       - PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
       - NODE_VERSION=8.11.1
       - YARN_VERSION=1.5.1
     ports:
-      - "8080:80"
-      - "8443:443"
-    privileged: true
+      - "443:443"
     depends_on:
       - zc-auth
       - zc-api-proxy
@@ -141,5 +101,7 @@ services:
       backend:
         aliases:
           - tnginx
+    volumes:
+      - /tmp:/tmp
 networks:
   backend:
